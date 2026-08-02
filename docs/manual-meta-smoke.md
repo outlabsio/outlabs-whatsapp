@@ -20,6 +20,13 @@ run:
 The package smoke does not create/register a phone, subscribe an app, change a WABA, or configure a
 callback. Those are explicit Meta console/API operations and must be reviewed separately.
 
+After the recipient OTP succeeds, copy `META_TEST_RECIPIENT` from the `to` value in Meta's generated
+cURL example. Do not reconstruct it from a contact card or a displayed/local phone format. The
+test-number allowlist compares the provider-generated recipient identifier, and some national
+numbering plans may be rendered differently from the maintainer's canonical E.164 contact value.
+Provider code `131030` means the submitted identifier did not match that allowlist; correct the
+configuration and require a fresh human-approved send instead of retrying automatically.
+
 ## Send-only environment
 
 Set these in a temporary secret-bearing shell/session, never in a committed `.env`:
@@ -36,7 +43,7 @@ OUTLABS_WHATSAPP_RUN_META_SMOKE=I_UNDERSTAND_THIS_SENDS_A_WHATSAPP_MESSAGE
 Run only the manual test:
 
 ```bash
-uv run pytest -m manual tests/manual/test_meta_test_waba.py
+uv run pytest --no-cov -m manual tests/manual/test_meta_test_waba.py
 ```
 
 ## Callback proof

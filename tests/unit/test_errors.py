@@ -25,10 +25,11 @@ def _response(status: int, *, retry_after: str | None = None) -> httpx.Response:
 
 
 def test_known_meta_codes_map_to_closed_categories() -> None:
-    assert isinstance(
-        error_from_response(_response(400), {"error": {"code": 131026}}),
-        InvalidRecipientError,
-    )
+    for code in (131026, 131030):
+        assert isinstance(
+            error_from_response(_response(400), {"error": {"code": code}}),
+            InvalidRecipientError,
+        )
     assert isinstance(
         error_from_response(_response(400), {"error": {"code": 132001}}),
         InvalidTemplateError,
