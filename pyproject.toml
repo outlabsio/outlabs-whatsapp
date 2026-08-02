@@ -1,0 +1,110 @@
+[project]
+name = "outlabs-whatsapp"
+version = "0.1.0a1"
+description = "Typed, framework-light WhatsApp Business Platform integration for Python services."
+authors = [
+    { name = "OUTLABS LLC", email = "contact@outlabs.io" },
+]
+maintainers = [
+    { name = "OUTLABS LLC", email = "contact@outlabs.io" },
+]
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.12,<3.14"
+keywords = ["whatsapp", "meta", "cloud-api", "fastapi", "webhooks", "async"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Framework :: FastAPI",
+    "Topic :: Communications :: Chat",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "httpx>=0.28,<1.0",
+    "pydantic>=2.10,<3.0",
+]
+
+[project.optional-dependencies]
+fastapi = [
+    "fastapi>=0.139,<1.0",
+]
+
+[project.urls]
+Homepage = "https://outlabs.io"
+Repository = "https://github.com/outlabsio/outlabs-whatsapp"
+Documentation = "https://github.com/outlabsio/outlabs-whatsapp/tree/main/docs"
+Issues = "https://github.com/outlabsio/outlabs-whatsapp/issues"
+
+[dependency-groups]
+dev = [
+    "build>=1.3,<2",
+    "hypothesis>=6.0,<7",
+    "mypy>=1.15,<2",
+    "pytest>=9.0.3,<10",
+    "pytest-asyncio>=1,<2",
+    "pytest-cov>=7,<8",
+    "ruff>=0.11,<1",
+]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/outlabs_whatsapp"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/tests",
+    "/docs",
+    "/README.md",
+    "/LICENSE",
+    "/SECURITY.md",
+    "/CHANGELOG.md",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = [
+    "--cov=outlabs_whatsapp",
+    "--cov-branch",
+    "--cov-report=term-missing",
+]
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+branch = true
+source = ["outlabs_whatsapp"]
+
+[tool.coverage.report]
+fail_under = 95
+show_missing = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "S", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "S105", "S106", "S603"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+pretty = true
+show_error_codes = true
+packages = ["outlabs_whatsapp"]
+
+[[tool.mypy.overrides]]
+module = ["fastapi", "fastapi.*"]
+ignore_missing_imports = true
