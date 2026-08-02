@@ -30,6 +30,9 @@ Provider exceptions contain safe category, integer code/subcode, HTTP status, an
 trace ID only. Meta's raw error message/details are not retained because they may echo request data.
 
 An `AmbiguousSendError` means the request may have reached Meta. It must not be retried blindly.
+Read/write/protocol failures, other uncertain transport failures, and generic Meta HTTP 5xx
+responses use this category. `ProviderUnavailableError` is reserved for a request known not to
+have been sent, such as connection establishment failure.
 
 Only 2xx responses can produce `SendResult`; redirects are never followed by the provider request.
 Provider message IDs must be bounded visible ASCII. Unsafe provider trace identifiers are discarded.

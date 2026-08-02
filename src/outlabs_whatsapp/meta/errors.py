@@ -1,7 +1,8 @@
 """Conservative Meta error decoding.
 
 Meta may add codes at any time. Unknown client rejections remain terminal invalid-request errors;
-unknown server failures remain retryable provider-unavailable errors in the consuming application.
+unknown server responses remain ambiguous because the response does not prove the send was rejected
+before Meta accepted it.
 """
 
 from __future__ import annotations
@@ -12,13 +13,13 @@ from typing import Any, TypedDict
 import httpx
 
 from outlabs_whatsapp.errors import (
+    AmbiguousSendError,
     AuthenticationError,
     InvalidRecipientError,
     InvalidRequestError,
     InvalidTemplateError,
     PolicyError,
     ProviderError,
-    ProviderUnavailableError,
     RateLimitedError,
 )
 
@@ -98,7 +99,7 @@ def error_from_response(response: httpx.Response, payload: Any) -> ProviderError
     if response.status_code in {401, 403} or fields.code in _AUTH_CODES:
         return AuthenticationError(**kwargs)
     if response.status_code >= 500:
-        return ProviderUnavailableError(**kwargs)
+        return AmbiguousSendError(**kwargs)
     return InvalidRequestError(**kwargs)
 
 

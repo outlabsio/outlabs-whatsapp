@@ -4,12 +4,12 @@ import httpx
 import pytest
 
 from outlabs_whatsapp import (
+    AmbiguousSendError,
     AuthenticationError,
     InvalidRecipientError,
     InvalidRequestError,
     InvalidTemplateError,
     PolicyError,
-    ProviderUnavailableError,
     RateLimitedError,
 )
 from outlabs_whatsapp.meta.errors import error_from_response
@@ -41,7 +41,7 @@ def test_known_meta_codes_map_to_closed_categories() -> None:
     )
     assert isinstance(
         error_from_response(_response(503), {"error": {"code": 131000}}),
-        ProviderUnavailableError,
+        AmbiguousSendError,
     )
 
 
@@ -80,7 +80,7 @@ def test_all_known_error_families_and_http_fallbacks_are_closed() -> None:
         InvalidTemplateError,
     )
     assert isinstance(error_from_response(_response(403), None), AuthenticationError)
-    assert isinstance(error_from_response(_response(500), None), ProviderUnavailableError)
+    assert isinstance(error_from_response(_response(500), None), AmbiguousSendError)
     assert isinstance(error_from_response(_response(400), None), InvalidRequestError)
 
 

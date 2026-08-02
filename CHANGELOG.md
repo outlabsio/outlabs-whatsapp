@@ -23,3 +23,5 @@ All notable changes to this project will be documented here.
 - Reject Unicode-digit recipients and empty public verifier configuration.
 - Record the three-perspective offline security/contract review and residual gates.
 - Add a double-guarded, synthetic-only manual Meta test-WABA send gate and callback checklist.
+- Classify generic Meta HTTP 5xx responses as ambiguous so consumers cannot blindly duplicate a
+  send that the provider may already have accepted.

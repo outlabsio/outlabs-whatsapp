@@ -94,6 +94,32 @@ async def test_meta_client_maps_rate_limit() -> None:
 
 
 @pytest.mark.asyncio
+async def test_meta_server_response_is_ambiguous_not_retryable() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            503,
+            request=request,
+            json={"error": {"code": 131000, "message": "private upstream detail"}},
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler), base_url="https://graph.facebook.com"
+    ) as http_client:
+        client = MetaCloudClient(
+            access_token="secret-token",
+            phone_number_id="phone-1",
+            graph_version="v99.0",
+            http_client=http_client,
+        )
+        with pytest.raises(AmbiguousSendError) as captured:
+            await client.send(_command())
+
+    assert captured.value.code == 131000
+    assert captured.value.http_status == 503
+    assert "private upstream detail" not in str(captured.value)
+
+
+@pytest.mark.asyncio
 async def test_read_timeout_is_ambiguous() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ReadTimeout("synthetic", request=request)

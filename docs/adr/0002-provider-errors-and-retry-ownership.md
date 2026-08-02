@@ -16,8 +16,8 @@ and otherwise uncertain transport failures become `AmbiguousSendError`.
 
 Provider error strings retain only category, integer code/subcode, HTTP status, and an optional
 trace identifier. Raw provider messages, response bodies, recipients, and command content are not
-retained. Unknown 4xx responses are terminal invalid requests; unknown 5xx responses are provider
-unavailability.
+retained. Unknown 4xx responses are terminal invalid requests. Generic 5xx responses are ambiguous:
+receiving an error response does not prove Meta rejected the send before provider acceptance.
 
 The host owns retry budget, persistence, reconciliation, and operator escalation. It must never
 automatically resend an ambiguous outcome.
@@ -25,5 +25,6 @@ automatically resend an ambiguous outcome.
 ## Consequences
 
 - Some uncertain sends require manual review rather than automatic recovery.
+- A generic Meta 5xx never becomes a blind automatic resend.
 - Adding or remapping a provider code requires official evidence and contract tests.
 - The package cannot claim exactly-once external delivery.
