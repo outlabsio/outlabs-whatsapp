@@ -9,8 +9,10 @@
 - Result: the guarded manual test completed successfully and asserted that Meta returned a
   `wamid.` acceptance identifier while preserving the package host reference.
 - Meaning: this proves command serialization, authenticated transport, accepted-response parsing,
-  and the corrected test-recipient configuration. Provider acceptance is not proof of delivery or
-  reading.
+  and the corrected test-recipient configuration. The maintainer subsequently supplied a handset
+  screenshot showing the `Hello World` message present in the recipient's WhatsApp conversation at
+  10:29 AM, providing human-observed receipt evidence. It does not replace a signed provider
+  `delivered` or `read` webhook.
 
 No CdN applicant, QDarte user, production sender, portal link, customer content, or production
 account was used.
@@ -27,6 +29,8 @@ account was used.
   authorized provider call; no automatic provider retry occurred.
 - The recipient value came verbatim from Meta's generated cURL example rather than being rebuilt
   from the maintainer's contact representation.
+- The handset screenshot was reviewed in place but not copied into the repository because it shows
+  the Meta test sender number. This review record retains only the sanitized observation.
 
 ## Credential handling
 
@@ -39,10 +43,11 @@ account was used.
 
 ## Gates still open
 
+Completed after this send proof: the clean installed-wheel CdN provider adapter,
+the signed FastAPI sink backed by CdN Postgres and application-owned TaskQ,
+duplicate/invalid-signature/unknown-sender-ID/privacy tests, monotonic delivery
+state, TaskQ verification, and application migration rollback rehearsal.
+
 1. Public HTTPS callback configured with a fresh app secret and verification token.
 2. Live GET challenge plus signed inbound reply and sent/delivered/read callback evidence.
-3. Live duplicate, invalid-signature, and unknown phone-number-ID handling through an
-   application-owned durable synthetic sink.
-4. A concrete installed-package CdN adapter and reconciliation proof.
-5. Release review before publishing an artifact or enabling any real application delivery.
-
+3. Release review before publishing an artifact or enabling any real application delivery.
