@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import asyncio
+import traceback
+from itertools import count
+
 import httpx
 import pytest
 
@@ -148,6 +152,10 @@ async def test_connect_failure_is_retryable_unavailable() -> None:
         ({"base_url": "https://user:pass@graph.facebook.com"}, "HTTPS origin"),
         ({"base_url": "https://graph.facebook.com/path"}, "HTTPS origin"),
         ({"base_url": "https://graph.facebook.com?token=bad"}, "HTTPS origin"),
+        ({"base_url": "https://[invalid"}, "HTTPS origin"),
+        ({"base_url": "https://graph.facebook.com:invalid"}, "HTTPS origin"),
+        ({"base_url": "https://graph.facebook.com\\@evil.test"}, "HTTPS origin"),
+        ({"base_url": "https://graph.facebook.com\n"}, "HTTPS origin"),
     ],
 )
 def test_client_rejects_unsafe_configuration(
@@ -240,6 +248,9 @@ async def test_async_context_manager_closes_owned_client() -> None:
 
     with pytest.raises(RuntimeError, match="closed"):
         await client.send(_command())
+    with pytest.raises(RuntimeError, match="closed"):
+        async with client:
+            pass
 
 
 @pytest.mark.asyncio
@@ -330,3 +341,197 @@ async def test_transport_failures_have_conservative_retry_semantics(
         )
         with pytest.raises(expected_error):
             await client.send(_command())
+
+
+@pytest.mark.asyncio
+async def test_concurrent_sends_resolve_independent_rotating_tokens() -> None:
+    sequence = count(1)
+    seen_tokens: set[str] = set()
+
+    async def token_provider() -> str:
+        token = f"token-{next(sequence)}"
+        await asyncio.sleep(0)
+        return token
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        token = request.headers["Authorization"].removeprefix("Bearer ")
+        seen_tokens.add(token)
+        await asyncio.sleep(0)
+        return httpx.Response(200, json={"messages": [{"id": f"wamid.{token}"}]})
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler), base_url="https://graph.facebook.com"
+    ) as http_client:
+        client = MetaCloudClient(
+            access_token=token_provider,
+            phone_number_id="phone-1",
+            graph_version="v99.0",
+            http_client=http_client,
+        )
+        results = await asyncio.gather(*(client.send(_command()) for _ in range(20)))
+
+    assert seen_tokens == {f"token-{index}" for index in range(1, 21)}
+    assert {result.message_id for result in results} == {
+        f"wamid.token-{index}" for index in range(1, 21)
+    }
+
+
+@pytest.mark.asyncio
+async def test_send_does_not_swallow_task_cancellation() -> None:
+    async def handler(_: httpx.Request) -> httpx.Response:
+        raise asyncio.CancelledError
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler), base_url="https://graph.facebook.com"
+    ) as http_client:
+        client = MetaCloudClient(
+            access_token="secret-token",
+            phone_number_id="phone-1",
+            graph_version="v99.0",
+            http_client=http_client,
+        )
+        with pytest.raises(asyncio.CancelledError):
+            await client.send(_command())
+
+
+@pytest.mark.asyncio
+async def test_upstream_transport_text_is_suppressed_from_formatted_traceback() -> None:
+    sensitive = "PRIVATE-UPSTREAM-TRANSPORT-CONTENT"
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout(sensitive, request=request)
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler), base_url="https://graph.facebook.com"
+    ) as http_client:
+        client = MetaCloudClient(
+            access_token="secret-token",
+            phone_number_id="phone-1",
+            graph_version="v99.0",
+            http_client=http_client,
+        )
+        with pytest.raises(AmbiguousSendError) as captured:
+            await client.send(_command())
+
+    rendered = "".join(traceback.format_exception(captured.value))
+    assert sensitive not in rendered
+    assert captured.value.__cause__ is None
+
+
+@pytest.mark.asyncio
+async def test_upstream_invalid_json_is_suppressed_from_formatted_traceback() -> None:
+    sensitive = "PRIVATE-UPSTREAM-RESPONSE-CONTENT"
+
+    async def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=sensitive)
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler), base_url="https://graph.facebook.com"
+    ) as http_client:
+        client = MetaCloudClient(
+            access_token="secret-token",
+            phone_number_id="phone-1",
+            graph_version="v99.0",
+            http_client=http_client,
+        )
+        with pytest.raises(MalformedProviderResponseError) as captured:
+            await client.send(_command())
+
+    rendered = "".join(traceback.format_exception(captured.value))
+    assert sensitive not in rendered
+    assert captured.value.__cause__ is None
+
+
+@pytest.mark.asyncio
+async def test_injected_http_client_must_also_use_an_https_origin() -> None:
+    async with httpx.AsyncClient(base_url="http://graph.facebook.com") as insecure_client:
+        with pytest.raises(ValueError, match="HTTPS origin"):
+            MetaCloudClient(
+                access_token="secret-token",
+                phone_number_id="phone-1",
+                graph_version="v99.0",
+                http_client=insecure_client,
+            )
+
+    async with httpx.AsyncClient(base_url="https://graph.facebook.com") as secure_client:
+        with pytest.raises(ValueError, match="cannot be combined"):
+            MetaCloudClient(
+                access_token="secret-token",
+                phone_number_id="phone-1",
+                graph_version="v99.0",
+                http_client=secure_client,
+                base_url="https://example.test",
+            )
+
+
+@pytest.mark.asyncio
+async def test_redirect_response_is_never_treated_as_an_accepted_send() -> None:
+    requests = 0
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal requests
+        requests += 1
+        return httpx.Response(
+            302,
+            request=request,
+            headers={"Location": "https://example.test/private"},
+            json={"messages": [{"id": "wamid.must-not-be-accepted"}]},
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="https://graph.facebook.com",
+        follow_redirects=True,
+    ) as http_client:
+        client = MetaCloudClient(
+            access_token="secret-token",
+            phone_number_id="phone-1",
+            graph_version="v99.0",
+            http_client=http_client,
+        )
+        with pytest.raises(InvalidRequestError):
+            await client.send(_command())
+
+    assert requests == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("message_id", ["x" * 513, "wamid.privaté", "wamid.private value"])
+async def test_provider_message_id_must_be_bounded_visible_ascii(message_id: str) -> None:
+    async def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"messages": [{"id": message_id}]})
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler), base_url="https://graph.facebook.com"
+    ) as http_client:
+        client = MetaCloudClient(
+            access_token="secret-token",
+            phone_number_id="phone-1",
+            graph_version="v99.0",
+            http_client=http_client,
+        )
+        with pytest.raises(MalformedProviderResponseError):
+            await client.send(_command())
+
+
+@pytest.mark.asyncio
+async def test_unsafe_provider_trace_header_is_discarded() -> None:
+    async def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"X-FB-Trace-ID": "x" * 257},
+            json={"messages": [{"id": "wamid.accepted"}]},
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler), base_url="https://graph.facebook.com"
+    ) as http_client:
+        client = MetaCloudClient(
+            access_token="secret-token",
+            phone_number_id="phone-1",
+            graph_version="v99.0",
+            http_client=http_client,
+        )
+        result = await client.send(_command())
+
+    assert result.provider_trace_id is None

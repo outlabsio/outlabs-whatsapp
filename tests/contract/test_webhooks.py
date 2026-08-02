@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import traceback
 from datetime import UTC, datetime
 
 import pytest
@@ -15,6 +16,8 @@ from outlabs_whatsapp import (
     UnsupportedEvent,
     WebhookVerifier,
     decode_envelope,
+    signature_for,
+    verify_challenge,
 )
 from outlabs_whatsapp.testing import (
     build_status_webhook,
@@ -188,7 +191,7 @@ def test_oversized_provider_fields_degrade_to_unsupported_event() -> None:
 
 
 def test_empty_and_non_object_json_are_rejected() -> None:
-    for raw in (b"", b"[]", b'"text"'):
+    for raw in (b"", b"[]", b'"text"', b'{"value":NaN}', b'{"value":Infinity}'):
         with pytest.raises(MalformedWebhookPayload):
             decode_envelope(raw)
 
@@ -198,6 +201,12 @@ def test_decode_body_cap_and_configuration_are_enforced() -> None:
         decode_envelope(b"{}", max_body_bytes=1)
     with pytest.raises(ValueError, match="max_body_bytes"):
         decode_envelope(b"{}", max_body_bytes=0)
+    for max_events in (0, 10_001):
+        with pytest.raises(ValueError, match="max_events"):
+            decode_envelope(b"{}", max_events=max_events)
+    for max_depth in (0, 257):
+        with pytest.raises(ValueError, match="max_json_depth"):
+            decode_envelope(b"{}", max_json_depth=max_depth)
 
 
 def test_received_time_must_be_timezone_aware() -> None:
@@ -220,6 +229,19 @@ def test_verifier_rejects_empty_or_control_character_secrets() -> None:
     for token in ("", " surrounding ", "line\nbreak"):
         with pytest.raises(ValueError, match="verify_token"):
             WebhookVerifier(app_secret="valid", verify_token=token)
+
+    with pytest.raises(TypeError, match="app_secret"):
+        WebhookVerifier(
+            app_secret=bytearray(b"mutable"),  # type: ignore[arg-type]
+            verify_token="valid",
+        )
+
+
+def test_free_verification_helpers_reject_empty_configuration() -> None:
+    with pytest.raises(ValueError, match="app_secret"):
+        signature_for(b"payload", b"")
+    with pytest.raises(ValueError, match="expected_token"):
+        verify_challenge("", "")
 
 
 def test_verifier_repr_hides_both_secrets() -> None:
@@ -257,3 +279,31 @@ def test_missing_entries_and_invalid_change_shapes_are_tolerated() -> None:
         events = decode_envelope(encode_payload(payload)).events
         assert len(events) == 1
         assert isinstance(events[0], UnsupportedEvent)
+
+
+def test_excess_normalized_events_reject_the_complete_envelope() -> None:
+    payload = json.loads(build_text_webhook())
+    messages = payload["entry"][0]["changes"][0]["value"]["messages"]
+    second = {**messages[0], "id": "wamid.test.inbound.2"}
+    messages.append(second)
+
+    with pytest.raises(MalformedWebhookPayload):
+        decode_envelope(encode_payload(payload), max_events=1)
+
+
+def test_deep_json_is_rejected_without_recursion_escape() -> None:
+    raw = b'{"nested":' + (b"[" * 2_000) + b"0" + (b"]" * 2_000) + b"}"
+
+    with pytest.raises(MalformedWebhookPayload):
+        decode_envelope(raw)
+
+
+def test_malformed_body_is_suppressed_from_formatted_traceback() -> None:
+    sensitive = "PRIVATE-MALFORMED-WEBHOOK-CONTENT"
+
+    with pytest.raises(MalformedWebhookPayload) as captured:
+        decode_envelope(f"{{{sensitive}".encode())
+
+    rendered = "".join(traceback.format_exception(captured.value))
+    assert sensitive not in rendered
+    assert captured.value.__cause__ is None

@@ -50,6 +50,8 @@ def test_template_parameter_is_hidden_from_nested_repr() -> None:
 def test_recipient_rejects_non_digits() -> None:
     with pytest.raises(ValidationError):
         TextCommand(to="+54 9 2664", body="hello")
+    with pytest.raises(ValidationError):
+        TextCommand(to="١٥٥٥٠٠٠١١١١", body="hello")
 
 
 def test_interactive_buttons_require_unique_ids() -> None:

@@ -24,7 +24,7 @@ through its own trusted configuration.
 | --- | --- |
 | Secret/content leakage in normal logging | sensitive fields excluded from representations and validation errors; provider messages discarded |
 | Access-token header injection | non-empty visible-ASCII credential validation |
-| Cleartext or credential-bearing provider origin | HTTPS origin-only validation with no user info, path, query, or fragment |
+| Cleartext, malformed, or credential-bearing provider origin | bounded visible-ASCII HTTPS origin validation with strict port/bracket parsing and no backslash, user info, path, query, or fragment |
 | Forged webhook | exact HMAC-SHA256 verification over raw bytes before JSON decoding |
 | Body/decompression abuse | uncompressed JSON requirement plus streaming and decoder size caps |
 | Schema drift or oversized provider fields | tolerant, bounded normalization to versioned events or `UnsupportedEvent` |
@@ -43,6 +43,20 @@ reporting, or support tickets.
 An application compromise, a leaked Meta credential, malicious application-provided token callback,
 or incorrect tenant mapping is outside the package's ability to contain and requires host-level
 incident controls.
+
+Injected HTTP clients are still host code, but the package validates and captures their HTTPS origin
+and disables redirects for sends. Client hooks, transports, proxies, and logging configuration
+remain the host's responsibility.
+
+## Residual risks
+
+- Meta acceptance followed by an application crash before `wamid` persistence cannot be made
+  exactly-once by this package.
+- Signed raw bodies necessarily exist in process memory during verification/normalization.
+- The default 1 MB body, depth-64 JSON, and 1,000-event bounds limit but do not eliminate parsing
+  allocation or CPU use; hosts still need ingress concurrency/time limits.
+- Live Meta conformance and the concrete installed-package consumer adapter/signed sink remain
+  explicit pre-release gates; CdN's durable fake-provider path is now proven offline.
 
 ## Release evidence
 

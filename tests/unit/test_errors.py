@@ -110,6 +110,12 @@ def test_malformed_meta_error_fields_are_ignored() -> None:
     assert error.provider_trace_id is None
     assert "private provider text" not in str(error)
 
+    oversized_trace = error_from_response(
+        _response(400),
+        {"error": {"code": 131000, "fbtrace_id": "x" * 257}},
+    )
+    assert oversized_trace.provider_trace_id is None
+
 
 @pytest.mark.parametrize("payload", [None, [], {}, {"error": "not-an-object"}])
 def test_non_error_shapes_are_treated_as_empty_error_metadata(payload: object) -> None:

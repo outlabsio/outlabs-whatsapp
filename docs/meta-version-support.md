@@ -11,3 +11,6 @@ Before changing the production version:
 5. deploy to a non-production consumer environment before production.
 
 Package version, normalized event schema version, and Meta Graph API version are independent.
+
+The [manual test-WABA smoke](manual-meta-smoke.md) requires an explicit version and never chooses or
+updates a Meta Graph version automatically.

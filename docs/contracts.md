@@ -31,6 +31,9 @@ trace ID only. Meta's raw error message/details are not retained because they ma
 
 An `AmbiguousSendError` means the request may have reached Meta. It must not be retried blindly.
 
+Only 2xx responses can produce `SendResult`; redirects are never followed by the provider request.
+Provider message IDs must be bounded visible ASCII. Unsafe provider trace identifiers are discarded.
+
 ## Events
 
 Normalized webhook events carry schema version `1`, a deterministic dedupe key, provider IDs,

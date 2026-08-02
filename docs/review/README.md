@@ -1,0 +1,6 @@
+# Review evidence
+
+- [2026-08-02 offline security and contract review](2026-08-02-offline-security-review.md)
+
+Review records describe evidence at a point in time. New behavior or a changed threat boundary
+requires a new dated review; do not rewrite a past conclusion as if it had covered later code.

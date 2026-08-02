@@ -34,8 +34,42 @@ jobs:
       - run: uv run pytest
       - run: uv run --with pip-audit pip-audit --skip-editable
       - run: uv build
+      - name: Reproducible artifacts
+        if: matrix.python-version == '3.13'
+        run: |
+          uv build --out-dir "$RUNNER_TEMP/build-one"
+          uv build --out-dir "$RUNNER_TEMP/build-two"
+          cmp "$RUNNER_TEMP/build-one/outlabs_whatsapp-0.1.0a1-py3-none-any.whl" "$RUNNER_TEMP/build-two/outlabs_whatsapp-0.1.0a1-py3-none-any.whl"
+          cmp "$RUNNER_TEMP/build-one/outlabs_whatsapp-0.1.0a1.tar.gz" "$RUNNER_TEMP/build-two/outlabs_whatsapp-0.1.0a1.tar.gz"
       - name: Installed wheel smoke
         run: |
           uv venv .artifact-venv --python ${{ matrix.python-version }}
-          uv pip install --python .artifact-venv/bin/python dist/*.whl
-          .artifact-venv/bin/python -c "import outlabs_whatsapp; assert outlabs_whatsapp.__version__ == '0.1.0a1'"
+          uv pip install --python .artifact-venv/bin/python "dist/outlabs_whatsapp-0.1.0a1-py3-none-any.whl[fastapi]"
+          .artifact-venv/bin/python -I tests/installed_artifact/wheel_contract.py
+
+  minimum-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+      - name: Install declared minimum runtime dependencies
+        run: |
+          uv venv .minimum-venv --python ${{ matrix.python-version }}
+          uv pip install --python .minimum-venv/bin/python --editable ".[fastapi]" \
+            "httpx==0.28.0" "pydantic==2.10.0" "fastapi==0.139.0" \
+            "hypothesis>=6,<7" "pytest>=9.0.3,<10" "pytest-asyncio>=1,<2" "pytest-cov>=7,<8"
+      - run: .minimum-venv/bin/python -m pytest
+      - name: Audit minimum runtime environment
+        run: |
+          minimum_site=$(.minimum-venv/bin/python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
+          uvx pip-audit --path "$minimum_site" --skip-editable

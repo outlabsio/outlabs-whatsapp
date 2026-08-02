@@ -78,6 +78,9 @@ addopts = [
     "--cov-report=term-missing",
 ]
 filterwarnings = ["error"]
+markers = [
+    "manual: disabled-by-default tests that can perform explicit external effects",
+]
 
 [tool.coverage.run]
 branch = true

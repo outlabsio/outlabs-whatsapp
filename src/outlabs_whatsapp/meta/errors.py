@@ -54,10 +54,17 @@ def extract_meta_error(payload: object) -> MetaErrorFields:
     if not isinstance(error, dict):
         return MetaErrorFields()
     trace = error.get("fbtrace_id")
+    safe_trace = (
+        trace
+        if isinstance(trace, str)
+        and 1 <= len(trace) <= 256
+        and all(33 <= ord(character) <= 126 for character in trace)
+        else None
+    )
     return MetaErrorFields(
         code=_integer(error.get("code")),
         subcode=_integer(error.get("error_subcode")),
-        provider_trace_id=trace if isinstance(trace, str) and trace else None,
+        provider_trace_id=safe_trace,
     )
 
 

@@ -13,5 +13,8 @@ Direct Meta transport requires an HTTPS origin. Access tokens must be visible AS
 inject HTTP headers. Webhooks require exact HMAC-SHA256 verification before JSON decoding, reject
 compressed/non-JSON requests in the FastAPI adapter, and enforce bounded bodies.
 
+The same HTTPS-origin check applies to injected HTTP clients, provider requests do not follow
+redirects, and sensitive upstream/sink causes are suppressed from normal formatted tracebacks.
+
 See [the threat model](docs/threat-model.md) and the
 [consumer security checklist](docs/consumer-security-checklist.md).

@@ -17,9 +17,12 @@ and enqueue the application event task in one transaction before returning.
 Use one endpoint-scoped `WebhookVerifier`. If multiple Meta apps are used during migration, give
 each app a distinct route/verifier; do not parse an unsigned payload to choose an app secret.
 
-The default FastAPI body limit is 1 MB. `decode_envelope` also has a 16 MB defense-in-depth cap for
-callers that use it without the router. Keep the route-level limit as small as real Meta payloads
-permit.
+The FastAPI adapter and standalone decoder both default to a 1 MB body limit. Callers may configure
+up to the hard 16 MB ceiling, but should keep the limit as small as real Meta payloads permit.
+
+Both entry points default to 1,000 normalized events per envelope and allow a configured range of
+1–10,000. Exceeding the limit rejects the complete envelope rather than silently dropping events.
+JSON nesting defaults to 64 levels and permits an explicit range of 1–256.
 
 FastAPI access/error logging must not record query verification tokens, signature headers, bodies,
 phone numbers, or validation payloads.

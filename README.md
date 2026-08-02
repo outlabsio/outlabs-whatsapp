@@ -26,6 +26,11 @@ host application must still provide.
 The package does not provide a database, queue, worker, campaign system, consent policy, tenant
 model, templates, AI agent, or inbox UI. See [contracts](docs/contracts.md).
 
+The accepted v0.1 boundaries and change-control rules are recorded in the
+[architecture decisions](docs/adr/README.md).
+The latest completed gate is the
+[offline security and contract review](docs/review/2026-08-02-offline-security-review.md).
+
 ## Install for development
 
 ```bash
@@ -39,20 +44,19 @@ import os
 
 from outlabs_whatsapp import MetaCloudClient, TemplateCommand
 
-client = MetaCloudClient(
+async with MetaCloudClient(
     access_token=lambda: os.environ["META_WHATSAPP_ACCESS_TOKEN"],
     phone_number_id=os.environ["META_WHATSAPP_PHONE_NUMBER_ID"],
     graph_version=os.environ["META_GRAPH_VERSION"],
-)
-
-result = await client.send(
-    TemplateCommand(
-        to="+15550001111",
-        name="application_update_available",
-        language_code="es_AR",
-        host_reference="send-intent-id",
+) as client:
+    result = await client.send(
+        TemplateCommand(
+            to="+15550001111",
+            name="application_update_available",
+            language_code="es_AR",
+            host_reference="send-intent-id",
+        )
     )
-)
 ```
 
 The application must complete its consent, suppression, purpose, link-expiry, tenant, and kill-
@@ -101,3 +105,6 @@ uv build
 
 `pytest` enforces branch coverage at 95% and treats warnings as failures. CI runs the complete gate
 on Python 3.12 and 3.13, then installs the built wheel into a clean environment for an import smoke.
+
+The real [Meta test-WABA smoke](docs/manual-meta-smoke.md) is double-guarded, synthetic-only, and
+excluded from normal CI.

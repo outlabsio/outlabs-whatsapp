@@ -19,7 +19,11 @@ def _normalized_recipient(value: str) -> str:
     normalized = value.strip()
     if normalized.startswith("+"):
         normalized = normalized[1:]
-    if not 7 <= len(normalized) <= 20 or not normalized.isdigit():
+    if (
+        not 7 <= len(normalized) <= 20
+        or not normalized.isascii()
+        or not normalized.isdecimal()
+    ):
         raise ValueError("recipient must contain 7-20 digits, optionally prefixed with +")
     return normalized
 

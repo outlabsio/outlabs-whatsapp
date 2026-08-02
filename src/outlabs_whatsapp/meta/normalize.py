@@ -18,6 +18,10 @@ from outlabs_whatsapp.events import (
 )
 
 
+class _EventLimitExceeded(Exception):
+    pass
+
+
 def _text(value: object, *, max_length: int | None = None) -> str | None:
     if not isinstance(value, str) or not value:
         return None
@@ -229,8 +233,17 @@ def normalize_payload(
     *,
     raw_payload_sha256: str,
     received_at: datetime,
+    max_events: int = 1_000,
 ) -> tuple[NormalizedEvent, ...]:
+    if not 1 <= max_events <= 10_000:
+        raise ValueError("max_events must be between 1 and 10000")
     events: list[NormalizedEvent] = []
+
+    def append_event(event: NormalizedEvent) -> None:
+        if len(events) >= max_events:
+            raise _EventLimitExceeded
+        events.append(event)
+
     entries = payload.get("entry")
     if not isinstance(entries, Sequence) or isinstance(entries, (str, bytes)):
         entries = ()
@@ -260,7 +273,7 @@ def normalize_payload(
             if isinstance(messages, Sequence) and not isinstance(messages, (str, bytes)):
                 for message in messages:
                     if isinstance(message, Mapping):
-                        events.append(
+                        append_event(
                             _message_event(
                                 message,
                                 waba_id=waba_id,
@@ -273,7 +286,7 @@ def normalize_payload(
             if isinstance(statuses, Sequence) and not isinstance(statuses, (str, bytes)):
                 for status in statuses:
                     if isinstance(status, Mapping):
-                        events.append(
+                        append_event(
                             _status_event(
                                 status,
                                 waba_id=waba_id,
@@ -283,7 +296,7 @@ def normalize_payload(
                             )
                         )
             if len(events) == before:
-                events.append(
+                append_event(
                     UnsupportedEvent(
                         dedupe_key=_dedupe(
                             "change", waba_id, phone_number_id, field, raw_payload_sha256
@@ -298,7 +311,7 @@ def normalize_payload(
                 )
 
     if not events:
-        events.append(
+        append_event(
             UnsupportedEvent(
                 dedupe_key=_dedupe("payload", raw_payload_sha256),
                 raw_payload_sha256=raw_payload_sha256,
