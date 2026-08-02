@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented here.
 
-## 0.1.0a1 — unreleased
+## 0.1.0a1 — 2026-08-02
 
 - Establish the framework-light core contracts.
 - Add the direct Meta Cloud API client.
