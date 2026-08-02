@@ -108,3 +108,6 @@ on Python 3.12 and 3.13, then installs the built wheel into a clean environment 
 
 The real [Meta test-WABA smoke](docs/manual-meta-smoke.md) is double-guarded, synthetic-only, and
 excluded from normal CI.
+
+See the [release process](docs/release.md) for the immutable tag, artifact, evidence, and consumer
+pinning gates.
