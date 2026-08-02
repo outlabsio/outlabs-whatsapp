@@ -56,3 +56,7 @@
    application-owned durable synthetic sink.
 5. Concrete installed-package consumer adapter and reconciliation proof before any production
    enablement or public release.
+
+The separately approved corrected attempt is recorded in the
+[Meta test-WABA send proof](2026-08-02-meta-test-waba-send-proof.md). This prerequisite record is
+retained unchanged as evidence of the first failed request and the resulting hardening.
